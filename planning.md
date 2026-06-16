@@ -18,18 +18,15 @@ You must have at least 3 tools. The three required tools are listed — add any 
 - This tool searches the mock thrift listings dataset for secondhand clothing items that match the user's requested description, size, and maximum price. It checks listing field such as title, description, category, style tags, size, price, color, brand, and platform to find useful matches.
 
 **Input parameters:**
-<!-- List each parameter, its type, and what it represents -->
 - `description` (str): The clothing item or style the user is searching for, such as "vintage graphic tee" or "black jacket". 
 - `size` (str): The cloting size the user wants, such as "S", "M", "L".  ...
 - `max_price` (float): The highest price the user wants to pay. ...
 
 **What it returns:**
 - The tool returns a list of matching listing dictionaries. Each listing may contain field such as id, title, description, category, style_tags, size, condition, price, colors, brand, platform. 
-<!-- Describe the return value — what fields does a result contain? -->
 
 **What happens if it fails or returns nothing:**
 - If no listings match the user’s request, the agent should not continue to compare_price, suggest_outfit, or create_fit_card. Instead, the agent should save an error message in the session and tell the user something like: "I couldn't find any listings that matched that description, size, and price. Try raising your budget, removing the size filter, or using a broader description."
-<!-- What should the agent do if no listings match? -->
 
 ---
 
@@ -39,43 +36,36 @@ You must have at least 3 tools. The three required tools are listed — add any 
 This tool takes the selected thrift listing and the user's wardrobe, then suggests one or more outfit combinations using the new item and items the user already owns. It should give practical styling advice, not just list clothing items.
 
 **Input parameters:**
-<!-- List each parameter, its type, and what it represents -->
 - `new_item` (dict): The selected listing from search_listings. This should include fields like title, category, price, colors, style tags, brand, condition, and platform. 
 - `wardrobe` (dict): The user's current wardrobe data. This includes wardrobe items the user already owns, such as jeans, shoes, jackets, tops, or accessories.
 
 **What it returns:** 
 - The tool returns a string with a complete outfit suggestion. The suggestion should explain how to wear the new item with wardrobe pieces and should include styling details such as shoes, bottoms, layering, colors, or vibe.
-<!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:** 
 - If the wardrobe is empty or minimal, the tool should still return useful general styling advice instead of crashing. For example, it can suggest basic pieces that would work well, such as jeans, sneakers, a hoodie, or simple accessories.
-<!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
 
 ---
 
 ### Tool 3: create_fit_card
 
 **What it does:** This tool creates a short, shareable fit card for the outfit. The fit card should sound like a casual caption someone might post on Instagram, TikTok, or a style board.
-<!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
-<!-- List each parameter, its type, and what it represents -->
 - `outfit` (str ): The outfit suggestion returned by suggest_outfit.
 - `new_item` (dict): The selected thrift listing used in the outfit. This includes information like title, price, platform, color, brand, and condition. 
 
 **What it returns:** The tool returns a short caption-style string that describes the outfit in a fun, shareable way. It should mention the new thrifted item and the general vibe of the outfit. The wording should change depending on the item and outfit input.
-<!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:** If the outfit input is missing, empty, or incomplete, the tool should not crash. It should return a clear error string like: "I need a complete outfit suggestion before I can create a fit card."
-<!-- What should the agent do if the outfit data is incomplete? -->
 
 ---
 
-### Additional Tools (if any)
+### Tool 4: compare_price
 
 What it does:
 This tool estimates whether the selected thrift listing is a good deal, fair price, overpriced, or unknown by comparing it with similar listings in the mock dataset. It looks for comparable items using fields such as category, style tags, brand, colors, condition, and item type.
-<!-- Copy the block above for any tools beyond the required three -->
+
 
 Input Parameters: new_item (dict): The selected listing from search_listings. This dictionary should iclude fields such as title, category, style_tags, price, condition, brand, colors, and platform. 
 
@@ -106,7 +96,6 @@ After the outfit suggestion is created, the agent stores it in session["outfit_s
 If the outfit suggestion exists, the agent calls create_fit_card(outfit_suggestion, selected_item). The final fit card is stored in session["fit_card"].
 
 The loop is done when the session contains either a completed fit_card or an error.
-<!-- Describe the logic your planning loop uses. What does it look at? What conditions change its behavior? How does it know when it's done? -->
 
 ---
 
@@ -132,7 +121,6 @@ error: an error message if something fails
 For example, search_listings returns a list of item dictionaries. The agent stores the first item as session["selected_item"]. Then it passes that exact dictionary into compare_price and stores the result as session["price_comparison"].
 
 After that, the agent passes the same selected item into suggest_outfit. After suggest_outfit returns a string, the agent stores it as session["outfit_suggestion"] and passes it into create_fit_card.
-<!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
 
 ---
 
@@ -195,17 +183,6 @@ v Return final session to user
 ---
 
 ## AI Tool Plan
-
-<!-- For each part of the implementation below, describe:
-     - Which AI tool you plan to use (Claude, Copilot, ChatGPT, etc.)
-     - What you'll give it as input (which sections of this planning.md, your agent diagram)
-     - What you expect it to produce
-     - How you'll verify the output matches your spec before moving on
-
-     "I'll use AI to help me code" is not a plan.
-     "I'll give Claude my Tool 1 spec (inputs, return value, failure mode) and ask it to implement
-     search_listings() using load_listings() from the data loader — then test it against 3 queries
-     before trusting it" is a plan. -->
 
 **Milestone 3 — Individual tool implementations:**
 I will use ChatGPT to help implement each tool one at a time.
@@ -337,4 +314,3 @@ thrifted this faded band tee for $22 and it was made for baggy denim + chunky sn
 If the search returned no results, the user would instead see:
 
 I couldn't find any listings that matched that description, size, and price. Try raising your budget, removing the size filter, or using a broader description.
-<!-- What does the user actually see at the end? -->
