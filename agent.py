@@ -18,7 +18,9 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
-from tools import search_listings, suggest_outfit, create_fit_card
+import re 
+
+from tools import search_listings, suggest_outfit, create_fit_card, compare_price
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -37,7 +39,8 @@ def _new_session(query: str, wardrobe: dict) -> dict:
         "query": query,              # original user query
         "parsed": {},                # extracted description / size / max_price
         "search_results": [],        # list of matching listing dicts
-        "selected_item": None,       # top result, passed into suggest_outfit
+        "selected_item": None,
+        "price_comparison": None,    # result of compare_price, passed into suggest_outfit
         "wardrobe": wardrobe,        # user's wardrobe dict
         "outfit_suggestion": None,   # string returned by suggest_outfit
         "fit_card": None,            # string returned by create_fit_card
@@ -46,6 +49,7 @@ def _new_session(query: str, wardrobe: dict) -> dict:
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
@@ -62,40 +66,97 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         The session dict after the interaction completes. Check session["error"]
         first — if it is not None, the interaction ended early and the other
         output fields (outfit_suggestion, fit_card) will be None.
-
-    TODO — implement this function using the planning loop you designed in planning.md:
-
-        Step 1: Initialize the session with _new_session().
-
-        Step 2: Parse the user's query to extract a description, size, and
-                max_price. You can use regex, string splitting, or ask the LLM
-                to parse it — document your choice in planning.md.
-                Store the result in session["parsed"].
-
-        Step 3: Call search_listings() with the parsed parameters.
-                Store results in session["search_results"].
-                If no results: set session["error"] to a helpful message and
-                return the session early. Do NOT proceed to suggest_outfit
-                with empty input.
-
-        Step 4: Select the item to use (e.g., the top result).
-                Store it in session["selected_item"].
-
-        Step 5: Call suggest_outfit() with the selected item and wardrobe.
-                Store the result in session["outfit_suggestion"].
-
-        Step 6: Call create_fit_card() with the outfit suggestion and selected item.
-                Store the result in session["fit_card"].
-
-        Step 7: Return the session.
-
-    Before writing code, complete the Planning Loop and State Management sections
-    of planning.md — your implementation should match what you described there.
     """
-    # TODO: implement the planning loop
     session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+
+    # Step 2: Parse query for max_price, size, and description.
+    # This is a simple regex/string parser instead of an LLM parser because the
+    # starter queries are short and predictable.
+    query_lower = query.lower()
+
+    max_price = None
+    price_match = re.search(r"(?:under|below|less than|\$)\s*\$?(\d+(?:\.\d+)?)", query_lower)
+    if price_match:
+        max_price = float(price_match.group(1))
+
+    size = None
+    size_match = re.search(r"\bsize\s+([a-z0-9/.-]+)\b", query_lower)
+    if size_match:
+        size = size_match.group(1).upper()
+
+    description = query_lower
+
+    # Remove price phrases from description.
+    description = re.sub(r"(?:under|below|less than)\s*\$?\d+(?:\.\d+)?", "", description)
+    description = re.sub(r"\$\d+(?:\.\d+)?", "", description)
+
+    # Remove size phrase from description.
+    description = re.sub(r"\bsize\s+[a-z0-9/.-]+\b", "", description)
+
+    # Remove common filler words.
+    filler_words = [
+        "looking for",
+        "i am looking for",
+        "i'm looking for",
+        "i want",
+        "find me",
+        "show me",
+        "please",
+    ]
+
+    for filler in filler_words:
+        description = description.replace(filler, "")
+
+    description = description.strip(" ,.-")
+
+    session["parsed"] = {
+        "description": description,
+        "size": size,
+        "max_price": max_price,
+    }
+
+    # Step 3: Search listings.
+    results = search_listings(
+        description=description,
+        size=size,
+        max_price=max_price,
+    )
+    session["search_results"] = results
+
+    # If no results, stop early.
+    if not results:
+        session["error"] = (
+            "I couldn't find any listings that matched that description, size, and price. "
+            "Try using a broader description, removing the size filter, or increasing your budget."
+        )
+        return session
+
+    # Step 4: Select the top result.
+    selected_item = results[0]
+    session["selected_item"] = selected_item
+
+    # Extra credit step: compare price.
+    session["price_comparison"] = compare_price(selected_item)
+
+    # Step 5: Suggest outfit.
+    outfit_suggestion = suggest_outfit(selected_item, wardrobe)
+    session["outfit_suggestion"] = outfit_suggestion
+
+    if not outfit_suggestion or not outfit_suggestion.strip():
+        session["error"] = "I found an item, but I could not create an outfit suggestion."
+        return session
+
+    # Step 6: Create fit card.
+    fit_card = create_fit_card(outfit_suggestion, selected_item)
+    session["fit_card"] = fit_card
+
+    if not fit_card or not fit_card.strip():
+        session["error"] = "I created an outfit suggestion, but I could not create a fit card."
+        return session
+
+    # Step 7: Return completed session.
     return session
+
 
 
 # ── CLI test ──────────────────────────────────────────────────────────────────
@@ -112,6 +173,7 @@ if __name__ == "__main__":
         print(f"Error: {session['error']}")
     else:
         print(f"Found: {session['selected_item']['title']}")
+        print(f"\nPrice check: {session['price_comparison']['message']}")
         print(f"\nOutfit: {session['outfit_suggestion']}")
         print(f"\nFit card: {session['fit_card']}")
 
